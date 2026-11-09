@@ -164,6 +164,7 @@ public final class VentanaPartida extends JFrame {
         javax.swing.Timer estadoControles = new javax.swing.Timer(100, evento -> {
             if (animacion.consumirNuevaRondaPendiente()) {
                 resultadoPagado = false;
+                controlador.prepararNuevaRonda();
                 saldos.setText(formatoSaldos(gestor));
             }
             if (animacion.resultadoListo() && !resultadoPagado) {

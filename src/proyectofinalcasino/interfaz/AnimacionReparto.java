@@ -875,7 +875,8 @@ public final class AnimacionReparto extends JPanel {
             destinoX = dealer ? calcularDestinoX(jugador, true, ronda)
                     : calcularDestinoMano(mano)
                     + posicionEnMano * (int) (CARTA_ANCHO * DESPLAZAMIENTO_CARTA);
-            destinoY = calcularDestinoY(dealer, ronda);
+            destinoY = dealer ? calcularDestinoY(true, ronda)
+                    : calcularDestinoY(false, posicionEnMano);
         }
 
         private int calcularDestinoMano(int mano) {

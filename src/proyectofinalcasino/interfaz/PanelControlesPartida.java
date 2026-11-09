@@ -44,6 +44,7 @@ public final class PanelControlesPartida extends JPanel {
         setLayout(new FlowLayout());
         JComboBox<String> selector = new JComboBox<>();
         jugadores.forEach(jugador -> selector.addItem(jugador.getNombre()));
+        selector.setFocusable(false);
         selector.addActionListener(evento
                 -> acciones.seleccionarJugador(selector.getSelectedIndex()));
         comenzar.addActionListener(evento -> acciones.comenzar());

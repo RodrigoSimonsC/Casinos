@@ -48,22 +48,30 @@ public final class PartidaControlador implements PartidaEventoListener {
                 return false;
             }
         }
+        int jugadoresDescontados = 0;
         for (int indice = 0; indice < apuestas.length; indice++) {
             String nombre = jugadores.get(indice).getNombre();
             if (!gestorMesa.modificarSaldo(nombre, -apuestas[indice])) {
+                restaurarApuestas(apuestas, jugadoresDescontados);
                 return false;
             }
             persistencia.registrarSaldo(nombre, gestorMesa.obtenerSaldo(nombre));
+            jugadoresDescontados++;
         }
         if (!persistencia.abrirRonda(apuestas)) {
-            for (int indice = 0; indice < apuestas.length; indice++) {
-                gestorMesa.modificarSaldo(jugadores.get(indice).getNombre(),
-                        apuestas[indice]);
-            }
+            restaurarApuestas(apuestas, jugadoresDescontados);
             return false;
         }
         estado = EstadoPartida.REPARTIENDO;
         return true;
+    }
+
+    private void restaurarApuestas(int[] apuestas, int cantidadJugadores) {
+        for (int indice = 0; indice < cantidadJugadores; indice++) {
+            String nombre = jugadores.get(indice).getNombre();
+            gestorMesa.modificarSaldo(nombre, apuestas[indice]);
+            persistencia.registrarSaldo(nombre, gestorMesa.obtenerSaldo(nombre));
+        }
     }
 
     public void marcarTurnoJugador() {
@@ -101,6 +109,12 @@ public final class PartidaControlador implements PartidaEventoListener {
 
     public EstadoPartida obtenerEstado() {
         return estado;
+    }
+
+    public void prepararNuevaRonda() {
+        if (estado == EstadoPartida.RESULTADO) {
+            estado = EstadoPartida.ESPERANDO_APUESTAS;
+        }
     }
 
     public void cerrar() {
