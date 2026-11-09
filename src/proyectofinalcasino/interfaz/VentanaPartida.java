@@ -31,8 +31,7 @@ import java.util.HashSet;
 import java.util.Set;
 import proyectofinalcasino.funciones.GestorMesa;
 import proyectofinalcasino.funciones.BarajaBlackjack;
-import proyectofinalcasino.funciones.PartidaPersistencia;
-import proyectofinalcasino.conexiones.PartidaRepositoryJdbc;
+import proyectofinalcasino.funciones.PartidaControlador;
 
 /**
  * Vista de la mesa activa en pantalla completa.
@@ -40,7 +39,7 @@ import proyectofinalcasino.conexiones.PartidaRepositoryJdbc;
 public final class VentanaPartida extends JFrame {
 
     private final JFrame ventanaPrincipal;
-    private PartidaPersistencia persistencia;
+    private PartidaControlador controlador;
     private boolean resultadoPagado;
     private final Set<String> jugadoresAvisadosSinSaldo = new HashSet<>();
 
@@ -61,14 +60,13 @@ public final class VentanaPartida extends JFrame {
         AnimacionReparto animacion = new AnimacionReparto(
                 gestor.obtenerJugadores(), baraja,
                 gestor.obtenerConfiguracion().getMultiplesApuesta());
-        persistencia = new PartidaPersistencia(
-                new PartidaRepositoryJdbc(), gestor.obtenerJugadores());
-        if (!persistencia.abrirPartida(gestor.obtenerConfiguracion())) {
-            JOptionPane.showMessageDialog(this,
+        controlador = new PartidaControlador(gestor);
+        if (!controlador.abrir(gestor.obtenerConfiguracion())) {
+            JOptionPane.showMessageDialog(VentanaPartida.this,
                     "La partida se ejecutará, pero no se pudo registrar en MySQL.",
                     "Persistencia no disponible", JOptionPane.WARNING_MESSAGE);
         }
-        animacion.establecerEventos(persistencia);
+        animacion.establecerEventos(controlador.eventos());
         add(animacion, BorderLayout.CENTER);
 
         JPanel barra = new JPanel(new BorderLayout(15, 0));
@@ -91,88 +89,63 @@ public final class VentanaPartida extends JFrame {
         barra.add(salir, BorderLayout.EAST);
         add(barra, BorderLayout.NORTH);
 
-        JPanel controles = new JPanel();
-        controles.setOpaque(false);
-        JComboBox<String> selectorJugador = new JComboBox<>();
-        gestor.obtenerJugadores().forEach(jugador
-                -> selectorJugador.addItem(jugador.getNombre()));
-        selectorJugador.setFocusable(false);
-        selectorJugador.addActionListener(evento -> animacion.seleccionarJugador(
-                selectorJugador.getSelectedIndex()));
-        JButton comenzar = new JButton("Comenzar partida");
-        comenzar.setFocusable(false);
-        comenzar.addActionListener(evento -> {
+        int[] jugadorSeleccionado = {0};
+        PanelControlesPartida controles = new PanelControlesPartida(
+                gestor.obtenerJugadores(), new PanelControlesPartida.Acciones() {
+            @Override
+            public void seleccionarJugador(int indice) {
+                jugadorSeleccionado[0] = indice;
+                animacion.seleccionarJugador(indice);
+            }
+
+            @Override
+            public void comenzar() {
             if (!animacion.puedeComenzarPartida()) {
-                JOptionPane.showMessageDialog(this,
+                JOptionPane.showMessageDialog(VentanaPartida.this,
                         "Todos los jugadores deben realizar una apuesta antes de comenzar.",
                         "Apuestas pendientes", JOptionPane.WARNING_MESSAGE);
             } else {
-                for (int indice = 0; indice < gestor.obtenerJugadores().size(); indice++) {
-                    int apuesta = animacion.obtenerApuesta(indice);
-                    String jugador = gestor.obtenerJugadores().get(indice).getNombre();
-                    if (apuesta > 0 && gestor.obtenerSaldo(jugador) < apuesta) {
-                        JOptionPane.showMessageDialog(this,
-                                jugador + " no tiene saldo suficiente.",
-                                "Apuesta rechazada",
-                                JOptionPane.WARNING_MESSAGE);
-                        return;
-                    }
-                }
-                for (int indice = 0; indice < gestor.obtenerJugadores().size(); indice++) {
-                    String jugador = gestor.obtenerJugadores().get(indice).getNombre();
-                    int apuesta = animacion.obtenerApuesta(indice);
-                    if (apuesta > 0) {
-                        if (!gestor.modificarSaldo(jugador, -apuesta)) {
-                            JOptionPane.showMessageDialog(this,
-                                    jugador + " no tiene saldo suficiente.",
-                                    "Apuesta rechazada",
-                                    JOptionPane.WARNING_MESSAGE);
-                            return;
-                        }
-                        persistencia.registrarSaldo(jugador,
-                                gestor.obtenerSaldo(jugador));
-                    }
-                }
                 int[] apuestas = new int[gestor.obtenerJugadores().size()];
                 for (int indice = 0; indice < apuestas.length; indice++) {
                     apuestas[indice] = animacion.obtenerApuesta(indice);
                 }
-                if (!persistencia.abrirRonda(apuestas)) {
-                    for (int indice = 0; indice < apuestas.length; indice++) {
-                        if (apuestas[indice] > 0) {
-                            String jugador = gestor.obtenerJugadores()
-                                    .get(indice).getNombre();
-                            gestor.modificarSaldo(jugador, apuestas[indice]);
-                        }
-                    }
-                    saldos.setText(formatoSaldos(gestor));
-                    JOptionPane.showMessageDialog(this,
-                            "No se pudo registrar la ronda en MySQL.",
-                            "Partida no iniciada", JOptionPane.WARNING_MESSAGE);
+                if (!controlador.iniciarRonda(apuestas)) {
+                    JOptionPane.showMessageDialog(VentanaPartida.this,
+                            "No se pudo iniciar la ronda. Revisa las apuestas y los saldos.",
+                            "Partida no iniciada",
+                            JOptionPane.WARNING_MESSAGE);
                     return;
                 }
                 saldos.setText(formatoSaldos(gestor));
                 animacion.iniciarPartida();
             }
-        });
-        JButton pedir = new JButton("Pedir carta");
-        pedir.setFocusable(false);
-        pedir.addActionListener(evento -> animacion.pedirCarta());
-        JButton plantarse = new JButton("Plantarse");
-        plantarse.setFocusable(false);
-        plantarse.addActionListener(evento -> animacion.plantarse());
-        JButton doblar = new JButton("Doblar");
-        doblar.setFocusable(false);
-        doblar.addActionListener(evento -> animacion.doblarApuesta());
-        JButton separar = new JButton("Separar");
-        separar.setFocusable(false);
-        separar.addActionListener(evento -> animacion.separarCartas());
-        JButton apostar = new JButton("Apostar ficha");
-        apostar.setFocusable(false);
-        apostar.addActionListener(evento -> {
-            int indiceJugador = selectorJugador.getSelectedIndex();
+            }
+
+            @Override
+            public void pedir() {
+                animacion.pedirCarta();
+            }
+
+            @Override
+            public void plantarse() {
+                animacion.plantarse();
+            }
+
+            @Override
+            public void doblar() {
+                animacion.doblarApuesta();
+            }
+
+            @Override
+            public void separar() {
+                animacion.separarCartas();
+            }
+
+            @Override
+            public void apostar() {
+            int indiceJugador = jugadorSeleccionado[0];
             if (!puedeAgregarFicha(gestor, animacion, indiceJugador)) {
-                JOptionPane.showMessageDialog(this,
+                JOptionPane.showMessageDialog(VentanaPartida.this,
                         "El jugador no tiene saldo suficiente para agregar otra ficha.",
                         "Saldo insuficiente", JOptionPane.WARNING_MESSAGE);
                 return;
@@ -180,18 +153,13 @@ public final class VentanaPartida extends JFrame {
             if (animacion.apostar()) {
                 saldos.setText(formatoSaldos(gestor));
             }
+            }
+
+            @Override
+            public void retirar() {
+                animacion.retirarApuesta();
+            }
         });
-        JButton retirarApuesta = new JButton("Retirar ficha");
-        retirarApuesta.setFocusable(false);
-        retirarApuesta.addActionListener(evento -> animacion.retirarApuesta());
-        controles.add(pedir);
-        controles.add(selectorJugador);
-        controles.add(plantarse);
-        controles.add(doblar);
-        controles.add(separar);
-        controles.add(apostar);
-        controles.add(retirarApuesta);
-        controles.add(comenzar);
         add(controles, BorderLayout.SOUTH);
         javax.swing.Timer estadoControles = new javax.swing.Timer(100, evento -> {
             if (animacion.consumirNuevaRondaPendiente()) {
@@ -199,21 +167,20 @@ public final class VentanaPartida extends JFrame {
                 saldos.setText(formatoSaldos(gestor));
             }
             if (animacion.resultadoListo() && !resultadoPagado) {
-                pagarResultado(gestor, animacion, persistencia);
+                pagarResultado(animacion);
                 saldos.setText(formatoSaldos(gestor));
                 avisarJugadoresSinSaldo(gestor, saldos);
                 resultadoPagado = true;
             }
-            pedir.setEnabled(animacion.puedePedirCarta());
-            plantarse.setEnabled(animacion.puedePlantarse());
-            doblar.setEnabled(animacion.puedeDoblar());
-            separar.setEnabled(animacion.puedeSeparar());
-            apostar.setEnabled(!animacion.isPartidaIniciada()
+            controles.actualizar(animacion.puedePedirCarta(),
+                    animacion.puedePlantarse(), animacion.puedeDoblar(),
+                    animacion.puedeSeparar(),
+                    !animacion.isPartidaIniciada()
                     && puedeAgregarFicha(gestor, animacion,
-                            selectorJugador.getSelectedIndex()));
-            retirarApuesta.setEnabled(!animacion.isPartidaIniciada()
-                    && animacion.obtenerApuestaActual() > 0);
-            comenzar.setEnabled(animacion.puedeComenzarPartida());
+                            jugadorSeleccionado[0]),
+                    !animacion.isPartidaIniciada()
+                    && animacion.obtenerApuestaActual() > 0,
+                    animacion.puedeComenzarPartida());
         });
         estadoControles.start();
 
@@ -255,17 +222,11 @@ public final class VentanaPartida extends JFrame {
         return saldo > 0 && saldo >= siguienteApuesta;
     }
 
-    private void pagarResultado(GestorMesa gestor, AnimacionReparto animacion,
-            PartidaPersistencia persistencia) {
-        for (int indice = 0; indice < gestor.obtenerJugadores().size(); indice++) {
-            String jugador = gestor.obtenerJugadores().get(indice).getNombre();
+    private void pagarResultado(AnimacionReparto animacion) {
+        for (int indice = 0; indice < controlador.cantidadJugadores(); indice++) {
             double apuesta = animacion.obtenerApuesta(indice);
             double pago = apuesta * animacion.multiplicadorResultado(indice);
-            if (pago > 0) {
-                gestor.modificarSaldo(jugador, pago);
-            }
-            persistencia.registrarPago(indice, pago);
-            persistencia.registrarSaldo(jugador, gestor.obtenerSaldo(jugador));
+            controlador.pagar(indice, pago);
         }
     }
 
@@ -378,8 +339,8 @@ public final class VentanaPartida extends JFrame {
     }
 
     private void cerrarPartida() {
-        if (persistencia != null) {
-            persistencia.cerrar("Finalizada");
+        if (controlador != null) {
+            controlador.cerrar();
         }
         dispose();
         if (ventanaPrincipal instanceof VentanaPrincipal principal) {

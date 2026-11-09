@@ -1,0 +1,23 @@
+Contiene algunos comentarios importantes para establecer el uso de los atributos y una explicación acerca de los métodos de cada clase, además de referenciar algunas actividades de la ejecución del programa.
+Respeta las convenciones o estándares de codificación, establecidos por el lenguaje, en la declaración de clases, nombres de los elementos, tabulaciones y uso de delimitadores.
+La aplicación está basada en el diagrama de clases establecido en el documento respetando los aspectos de implementación de interfaces y uso de la herencia, además de estar correctamente encapsuladas (atributos privados, constructor por defecto, setters & getters, etc.).
+Crea paquetes de clases e interfaces para organizar su código en pequeños subsistemas ya sea por funcionalidad o por relaciones. 
+Contiene las clases, interfaces y/o relaciones establecidas por al menos 3 patrones de diseño elegidos con la funcionalidad esperada. Cabe señalar que debe tener relevancia el patrón de diseño en la funcionalidad del programa
+Contiene el diagrama de paquetes para mostrar la organización de sus clases y los diagramas de clases completos de la aplicación, los cuales deben incluir la estructura de acuerdo al patrón de diseño y todas las clases e interfaces deben especificar cuáles son sus atributos, sus métodos y las relaciones entre ellas. Usar una herramienta especializada en diseño UML.
+Establece una conexión con una base de datos que le permite almacenar y modificar información acerca del usuario y sus actividades para usarla posteriormente.
+
+Codifica      el menú          de opciones.
+Desarrolla   el código fuente del   proyecto según         las Clases          y Objetos utilizados.
+Desarrolla   el código  fuente para    validar la  captura  de datos  y gestionar   los errores.
+La    interfaz gráfica  es amigable  con el usuario. 
+Todo  el código  es completamente   funcional,  cumple     con los requisitos del  usuario  y es   entregado en    la    fecha establecida.
+Presenta código fuente y ejecutable (*.class).
+Expone código fuente.
+Explica las principales Clases y Métodos utilizados en el proyecto.
+Demuestra  la calidad y funcionalidad del software ingresando datos de prueba     para generar errores si los hubiera. 
+Contesta con mucho dominio las preguntas que se le formulan.
+Entrega el informe en formato Microsoft Word o PDF.
+El documento cumple con la    estructura y formato explicitado por el docente.
+El documento está exento de       errores ortográficos y gramaticales.
+El documento está bien redactado y tiene coherencia de contenido, contiene el código e imágenes de las ventanas de ejecución.
+
