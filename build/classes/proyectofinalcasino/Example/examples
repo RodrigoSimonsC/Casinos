@@ -1,0 +1,141 @@
+
+-- 1. Catálogo general de usuarios
+CREATE TABLE Usuarios (
+    id_Usuarios INT AUTO_INCREMENT PRIMARY KEY,
+    Nombre VARCHAR(255) NOT NULL UNIQUE
+);
+
+-- 2. Monedero o saldo global del usuario
+CREATE TABLE estadoUsuario (
+    id_estadoUsuario INT AUTO_INCREMENT PRIMARY KEY,
+    id_Usuario INT NOT NULL UNIQUE,
+    saldo_global DECIMAL(10,2) NOT NULL DEFAULT 1000.00,
+    FOREIGN KEY (id_Usuario) REFERENCES Usuarios(id_Usuarios) ON DELETE CASCADE
+);
+
+-- 3. Configuración elegida en la interfaz gráfica
+CREATE TABLE configuracion_mesa (
+    id_configuracion INT AUTO_INCREMENT PRIMARY KEY,
+    cantidad_mazos INT NOT NULL DEFAULT 6,
+    maximo_jugadores INT NOT NULL DEFAULT 7,
+    multiples_apuesta INT NOT NULL DEFAULT 2,
+    variante_reglas VARCHAR(50) NOT NULL DEFAULT 'Clásico (Paga 3:2)',
+    efectos_sonido BOOLEAN DEFAULT TRUE,
+    recarga_automatica BOOLEAN DEFAULT FALSE
+);
+
+-- 4. Partida o sesión de juego activa en la mesa
+CREATE TABLE partida (
+    id_partida INT AUTO_INCREMENT PRIMARY KEY,
+    id_configuracion INT NOT NULL,
+    fecha_inicio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado_partida VARCHAR(50) DEFAULT 'En Curso',
+    FOREIGN KEY (id_configuracion) REFERENCES configuracion_mesa(id_configuracion) ON DELETE CASCADE
+);
+
+-- 5. Jugadores que ingresaron a esta partida específica y su dinero inicial
+CREATE TABLE partidaJugada (
+    id_partidaJugada INT AUTO_INCREMENT PRIMARY KEY,
+    id_Partida INT NOT NULL,
+    id_Usuario INT NOT NULL,
+    monto_ingreso DECIMAL(10,2) NOT NULL, 
+    saldo_actual_mesa DECIMAL(10,2) NOT NULL, 
+    UNIQUE KEY uq_partida_usuario (id_Partida, id_Usuario),
+    FOREIGN KEY (id_Partida) REFERENCES partida(id_partida) ON DELETE CASCADE,
+    FOREIGN KEY (id_Usuario) REFERENCES Usuarios(id_Usuarios) ON DELETE CASCADE
+);
+
+-- 6. Historial de rondas dentro de la partida
+CREATE TABLE rondas (
+    id_rondas INT AUTO_INCREMENT PRIMARY KEY,
+    id_PartidaJugada INT NOT NULL,
+    ronda INT NOT NULL,
+    UNIQUE KEY uq_partida_ronda (id_PartidaJugada, ronda),
+    FOREIGN KEY (id_PartidaJugada) REFERENCES partidaJugada(id_partidaJugada) ON DELETE CASCADE
+);
+
+-- 7. Control de múltiples manos por usuario (Ideal para cuando se hace Split o Double Down)
+CREATE TABLE manos_jugador (
+    id_mano INT AUTO_INCREMENT PRIMARY KEY,
+    id_ronda INT NOT NULL,
+    idUsuario INT NOT NULL,
+    numero_mano INT NOT NULL DEFAULT 1, -- Mano 1 (principal), Mano 2 (si hizo split), etc.
+    apuesta_mano DECIMAL(10,2) NOT NULL, -- Apuesta específica para esta mano
+    estado_mano VARCHAR(30) DEFAULT 'Activa', -- 'Activa', 'Plantado', 'Bust', 'Blackjack'
+    UNIQUE KEY uq_ronda_usuario_mano (id_ronda, idUsuario, numero_mano),
+    FOREIGN KEY (id_ronda) REFERENCES rondas(id_rondas) ON DELETE CASCADE,
+    FOREIGN KEY (idUsuario) REFERENCES estadoUsuario(id_estadoUsuario) ON DELETE CASCADE
+);
+
+-- 8. Control de turnos por ronda (Indica a quién le toca actuar: Jugador/Mano o Dealer)
+CREATE TABLE turnos (
+    id_turno INT AUTO_INCREMENT PRIMARY KEY,
+    id_ronda INT NOT NULL,
+    idUsuario INT NULL, -- NULL si el turno es del Dealer / Crupier
+    es_dealer BOOLEAN NOT NULL DEFAULT FALSE, -- TRUE si le toca a la casa, FALSE si es de un jugador
+    orden_turno INT NOT NULL, -- Secuencia en la que actúan
+    estado_turno VARCHAR(30) DEFAULT 'Pendiente', -- 'Pendiente', 'En Juego', 'Finalizado'
+    FOREIGN KEY (id_ronda) REFERENCES rondas(id_rondas) ON DELETE CASCADE,
+    FOREIGN KEY (idUsuario) REFERENCES estadoUsuario(id_estadoUsuario) ON DELETE CASCADE
+);
+
+-- 9. Registro de decisiones tomadas en cada turno (Pedir, Plantarse, Doblar, Separar)
+CREATE TABLE decisiones_turno (
+    id_decision INT AUTO_INCREMENT PRIMARY KEY,
+    id_turno INT NOT NULL,
+    id_mano INT NOT NULL, 
+    tipo_decision VARCHAR(30) NOT NULL, -- 'Pedir (Hit)', 'Plantarse (Stand)', 'Doblar (Double)', 'Separar (Split)'
+    valor_adicional DECIMAL(10,2) NULL, -- Apuesta extra si dobló
+    fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_turno) REFERENCES turnos(id_turno) ON DELETE CASCADE,
+    FOREIGN KEY (id_mano) REFERENCES manos_jugador(id_mano) ON DELETE CASCADE
+);
+
+-- 10. Resultados analíticos, puntuación y estatus final por ronda de cada jugador
+CREATE TABLE resultados_ronda (
+    id_resultado INT AUTO_INCREMENT PRIMARY KEY,
+    id_ronda INT NOT NULL,
+    idUsuario INT NOT NULL,
+    puntuacion_final INT NOT NULL, -- Puntos obtenidos en la mano (ej. 20, 21, etc.)
+    resultado VARCHAR(30) NOT NULL, -- 'Ganó', 'Perdió', 'Empate (Push)', 'Blackjack', 'Bust'
+    FOREIGN KEY (id_ronda) REFERENCES rondas(id_rondas) ON DELETE CASCADE,
+    FOREIGN KEY (idUsuario) REFERENCES estadoUsuario(id_estadoUsuario) ON DELETE CASCADE
+);
+
+-- 11. Cartas repartidas vinculadas a su mano específica o al crupier
+CREATE TABLE Repartido (
+    id_Repartido INT AUTO_INCREMENT PRIMARY KEY,
+    id_Rondas INT NOT NULL,
+    id_mano INT NULL, -- Vinculado a la mano específica del jugador
+    id_Jugador INT NULL, -- NULL si la carta pertenece al Crupier
+    CartaActual VARCHAR(255) NOT NULL, -- Ej: '10 de Diamantes (baraja 6)'
+    es_crupier BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (id_Rondas) REFERENCES rondas(id_rondas) ON DELETE CASCADE,
+    FOREIGN KEY (id_mano) REFERENCES manos_jugador(id_mano) ON DELETE CASCADE,
+    FOREIGN KEY (id_Jugador) REFERENCES estadoUsuario(id_estadoUsuario) ON DELETE CASCADE
+);
+
+-- 12. Apuestas generales realizadas por ronda
+CREATE TABLE Apuesta (
+    id_Apuesta INT AUTO_INCREMENT PRIMARY KEY,
+    idUsuario INT NOT NULL,
+    id_ronda INT NOT NULL,
+    apostado DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (idUsuario) REFERENCES estadoUsuario(id_estadoUsuario),
+    FOREIGN KEY (id_ronda) REFERENCES rondas(id_rondas) ON DELETE CASCADE
+);
+
+-- 13. Pagos y transacciones económicas resultantes de la ronda
+CREATE TABLE Pagos (
+    id_Pagos INT AUTO_INCREMENT PRIMARY KEY,
+    id_ronda INT NOT NULL,
+    idUsuario INT NOT NULL,
+    monto_pagado DECIMAL(10,2) NOT NULL, -- Cuánto ganó o perdió en dinero tras el cierre
+    FOREIGN KEY (id_ronda) REFERENCES rondas(id_rondas) ON DELETE CASCADE,
+    FOREIGN KEY (idUsuario) REFERENCES estadoUsuario(id_estadoUsuario) ON DELETE CASCADE
+);
+
+-- Migración para una tabla Repartido creada con el tamaño anterior.
+-- Ejecutar una sola vez si la tabla ya existe:
+ALTER TABLE Repartido
+    MODIFY CartaActual VARCHAR(255) NOT NULL;
