@@ -51,7 +51,7 @@ public final class PartidaPersistencia implements PartidaEventoListener {
             if (manoId == 0) {
                 return false;
             }
-            manos.put(indice, manoId);
+            manos.put(claveMano(indice, 0), manoId);
         }
         return true;
     }
@@ -59,6 +59,14 @@ public final class PartidaPersistencia implements PartidaEventoListener {
     public void registrarSaldo(String jugador, double saldo) {
         if (partidaId > 0) {
             repository.actualizarSaldoEnPartida(partidaId, jugador, saldo);
+        }
+    }
+
+    public void registrarApuestaDoblada(int jugador, int mano,
+            double apuesta) {
+        int manoId = manos.getOrDefault(claveMano(jugador, mano), 0);
+        if (manoId > 0) {
+            repository.actualizarApuestaMano(manoId, apuesta);
         }
     }
 
@@ -83,7 +91,8 @@ public final class PartidaPersistencia implements PartidaEventoListener {
         if (rondaId == 0) {
             return;
         }
-        int manoId = dealer ? 0 : manos.getOrDefault(jugador, 0);
+        int manoId = dealer ? 0 : manos.getOrDefault(
+                claveMano(jugador, mano), 0);
         int jugadorId = dealer ? 0 : repository.obtenerEstadoUsuarioId(
                 jugadores.get(jugador).getNombre());
         repository.registrarCarta(rondaId, manoId, jugadorId, carta, dealer);
@@ -109,11 +118,22 @@ public final class PartidaPersistencia implements PartidaEventoListener {
                 jugadores.get(jugador).getNombre());
         int turnoId = repository.crearTurno(rondaId, jugadorId, false,
                 ++ordenTurno);
-        int manoId = manos.getOrDefault(jugador, 0);
+        if ("Separar".equals(decision)) {
+            int segundaMano = repository.crearMano(rondaId, jugadorId, 2,
+                    valorAdicional);
+            if (segundaMano > 0) {
+                manos.put(claveMano(jugador, 1), segundaMano);
+            }
+        }
+        int manoId = manos.getOrDefault(claveMano(jugador, mano), 0);
         if (turnoId > 0 && manoId > 0) {
             repository.registrarDecision(turnoId, manoId, decision,
                     valorAdicional);
         }
+    }
+
+    private int claveMano(int jugador, int mano) {
+        return jugador * 2 + mano;
     }
 
     @Override

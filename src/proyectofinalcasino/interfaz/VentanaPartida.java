@@ -28,10 +28,12 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.KeyStroke;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import proyectofinalcasino.funciones.GestorMesa;
 import proyectofinalcasino.funciones.BarajaBlackjack;
 import proyectofinalcasino.funciones.PartidaControlador;
+import proyectofinalcasino.modelo.Jugador;
 
 /**
  * Vista de la mesa activa en pantalla completa.
@@ -39,15 +41,34 @@ import proyectofinalcasino.funciones.PartidaControlador;
 public final class VentanaPartida extends JFrame {
 
     private final JFrame ventanaPrincipal;
+    private final GestorMesa gestor;
+    private final List<String> nombresJugadores;
     private PartidaControlador controlador;
+    private JLabel saldos;
     private boolean resultadoPagado;
     private final Set<String> jugadoresAvisadosSinSaldo = new HashSet<>();
 
     public VentanaPartida(JFrame ventanaPrincipal, GestorMesa gestor,
             BarajaBlackjack baraja) {
         this.ventanaPrincipal = ventanaPrincipal;
+        this.gestor = gestor;
+        nombresJugadores = gestor.obtenerJugadores().stream()
+                .map(Jugador::getNombre)
+                .toList();
         configurarVentana(gestor, baraja);
         setVisible(true);
+    }
+
+    public void mostrarPartida() {
+        saldos.setText(formatoSaldos(gestor));
+        setVisible(true);
+        toFront();
+    }
+
+    public boolean mismosJugadores(List<Jugador> jugadores) {
+        return nombresJugadores.equals(jugadores.stream()
+                .map(Jugador::getNombre)
+                .toList());
     }
 
     private void configurarVentana(GestorMesa gestor, BarajaBlackjack baraja) {
@@ -78,7 +99,7 @@ public final class VentanaPartida extends JFrame {
         titulo.setFont(new Font("SansSerif", Font.BOLD, 26));
         barra.add(titulo, BorderLayout.WEST);
 
-        JLabel saldos = new JLabel(formatoSaldos(gestor));
+        saldos = new JLabel(formatoSaldos(gestor));
         saldos.setForeground(Color.WHITE);
         saldos.setFont(new Font("SansSerif", Font.BOLD, 14));
         barra.add(saldos, BorderLayout.SOUTH);
@@ -133,12 +154,53 @@ public final class VentanaPartida extends JFrame {
 
             @Override
             public void doblar() {
-                animacion.doblarApuesta();
+                int jugador = animacion.obtenerJugadorActivo();
+                int mano = animacion.obtenerManoActiva();
+                double apuesta = animacion.obtenerApuesta(jugador, mano);
+                String nombre = gestor.obtenerJugadores().get(jugador).getNombre();
+                if (gestor.obtenerSaldo(nombre) < apuesta) {
+                    JOptionPane.showMessageDialog(VentanaPartida.this,
+                            "El jugador no tiene saldo para doblar la apuesta.",
+                            "Saldo insuficiente", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                if (!gestor.modificarSaldo(nombre, -apuesta)) {
+                    return;
+                }
+                if (!animacion.doblarApuesta()
+                        || !animacion.registrarApuestaDoblada()) {
+                    gestor.modificarSaldo(nombre, apuesta);
+                    return;
+                }
+                animacion.actualizarFichaApuesta(jugador);
+                controlador.registrarApuestaDoblada(jugador, mano,
+                        animacion.obtenerApuesta(jugador, mano));
+                controlador.registrarSaldo(nombre, gestor.obtenerSaldo(nombre));
+                saldos.setText(formatoSaldos(gestor));
             }
 
             @Override
             public void separar() {
-                animacion.separarCartas();
+                int jugador = animacion.obtenerJugadorActivo();
+                double apuesta = animacion.obtenerApuesta(jugador);
+                String nombre = gestor.obtenerJugadores().get(jugador).getNombre();
+                if (gestor.obtenerSaldo(nombre) < apuesta) {
+                    JOptionPane.showMessageDialog(VentanaPartida.this,
+                            "El jugador no tiene saldo para pagar la segunda mano.",
+                            "Saldo insuficiente", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                if (!gestor.modificarSaldo(nombre, -apuesta)) {
+                    return;
+                }
+                if (!animacion.separarCartas()
+                        || !animacion.registrarApuestaSeparada()) {
+                    gestor.modificarSaldo(nombre, apuesta);
+                    return;
+                }
+                animacion.actualizarFichaApuesta(jugador);
+                controlador.registrarSaldo(nombre, gestor.obtenerSaldo(nombre));
+                saldos.setText(formatoSaldos(gestor));
             }
 
             @Override
@@ -225,9 +287,11 @@ public final class VentanaPartida extends JFrame {
 
     private void pagarResultado(AnimacionReparto animacion) {
         for (int indice = 0; indice < controlador.cantidadJugadores(); indice++) {
-            double apuesta = animacion.obtenerApuesta(indice);
-            double pago = apuesta * animacion.multiplicadorResultado(indice);
-            controlador.pagar(indice, pago);
+            for (int mano = 0; mano < animacion.cantidadManos(indice); mano++) {
+                double apuesta = animacion.obtenerApuesta(indice, mano);
+                double pago = apuesta * animacion.multiplicadorResultado(indice, mano);
+                controlador.pagar(indice, pago);
+            }
         }
     }
 
@@ -340,10 +404,7 @@ public final class VentanaPartida extends JFrame {
     }
 
     private void cerrarPartida() {
-        if (controlador != null) {
-            controlador.cerrar();
-        }
-        dispose();
+        setVisible(false);
         if (ventanaPrincipal instanceof VentanaPrincipal principal) {
             principal.refrescarJugadores();
         }
@@ -353,12 +414,6 @@ public final class VentanaPartida extends JFrame {
     @Override
     public void dispose() {
         super.dispose();
-        if (ventanaPrincipal != null && !ventanaPrincipal.isVisible()) {
-            ventanaPrincipal.setVisible(true);
-            if (ventanaPrincipal instanceof VentanaPrincipal principal) {
-                principal.refrescarJugadores();
-            }
-        }
     }
 
     private static final class FondoMesa extends JPanel {

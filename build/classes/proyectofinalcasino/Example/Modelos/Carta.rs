@@ -1,0 +1,1 @@
+blackcasino.modelos.Carta

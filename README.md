@@ -9,6 +9,9 @@ Este documento describe el sistema desde la entrada de la aplicación hasta el
 por paquetes y clases para que sea posible seguir el flujo prácticamente
 método por método.
 
+Para consultar únicamente el funcionamiento visual y técnico del reparto de
+cartas, véase [README_ANIMACION_CARTAS.md](README_ANIMACION_CARTAS.md).
+
 ---
 
 ## 1. Objetivo del proyecto
@@ -1423,10 +1426,14 @@ Persistencia:
 ## 17. Instalación de MySQL
 
 1. Instalar MySQL o XAMPP.
-2. Crear la base:
+2. Ejecutar el archivo `src/proyectofinalcasino/Example/examples` completo en
+   MySQL Workbench, phpMyAdmin o la consola de MySQL. El archivo crea y
+   selecciona la base `casino` antes de crear sus tablas.
+
+También se puede crear manualmente:
 
 ```sql
-CREATE DATABASE casino;
+CREATE DATABASE IF NOT EXISTS casino;
 ```
 
 3. Seleccionarla:

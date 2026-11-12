@@ -64,6 +64,7 @@ public final class BarajaBlackjack {
         System.out.println("=== Baraja de blackjack revuelta ===");
         System.out.println("Total de cartas: " + cartas.size());
         for (int posicion = 0; posicion < cartas.size(); posicion++) {
+            
             System.out.printf("Posicion %d: %s%n", posicion + 1, cartas.get(posicion));
         }
         System.out.println("=== Fin de la baraja ===");

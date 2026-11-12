@@ -34,10 +34,12 @@ public final class PartidaRepositoryJdbc implements PartidaRepository {
                 PreparedStatement configuracionStatement
                 = connection.prepareStatement(configuracionSql);
                 ResultSet configuraciones = configuracionStatement.executeQuery()) {
-            if (!configuraciones.next()) {
-                return 0;
+            int configuracionId;
+            if (configuraciones.next()) {
+                configuracionId = configuraciones.getInt(1);
+            } else {
+                configuracionId = crearConfiguracion(connection, configuracion);
             }
-            int configuracionId = configuraciones.getInt(1);
             try (PreparedStatement partida = connection.prepareStatement(
                     partidaSql, Statement.RETURN_GENERATED_KEYS)) {
                 partida.setInt(1, configuracionId);
@@ -54,6 +56,31 @@ public final class PartidaRepositoryJdbc implements PartidaRepository {
         } catch (SQLException exception) {
             informarError("No se pudo crear la partida.", exception);
             return 0;
+        }
+    }
+
+    private int crearConfiguracion(Connection connection,
+            ConfiguracionMesa configuracion) throws SQLException {
+        String sql = "INSERT INTO configuracion_mesa "
+                + "(cantidad_mazos, maximo_jugadores, multiples_apuesta, "
+                + "variante_reglas, efectos_sonido, recarga_automatica) "
+                + "VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement statement = connection.prepareStatement(
+                sql, Statement.RETURN_GENERATED_KEYS)) {
+            statement.setInt(1, configuracion.getCantidadBarajas());
+            statement.setInt(2, configuracion.getMaximoJugadores());
+            statement.setInt(3, configuracion.getMultiplesApuesta());
+            statement.setString(4, configuracion.getVarianteReglas());
+            statement.setBoolean(5, configuracion.isEfectosSonido());
+            statement.setBoolean(6, configuracion.isRecargaAutomatica());
+            statement.executeUpdate();
+            try (ResultSet claves = statement.getGeneratedKeys()) {
+                if (!claves.next()) {
+                    throw new SQLException(
+                            "La base de datos no devolvió el id de la configuración.");
+                }
+                return claves.getInt(1);
+            }
         }
     }
 
@@ -311,6 +338,15 @@ public final class PartidaRepositoryJdbc implements PartidaRepository {
             statement.setBigDecimal(1, dinero(saldo));
             statement.setInt(2, partidaId);
             statement.setString(3, jugador);
+        });
+    }
+
+    @Override
+    public boolean actualizarApuestaMano(int manoId, double apuesta) {
+        return ejecutar("UPDATE manos_jugador SET apuesta_mano = ? "
+                + "WHERE id_mano = ?", statement -> {
+            statement.setBigDecimal(1, dinero(apuesta));
+            statement.setInt(2, manoId);
         });
     }
 

@@ -65,4 +65,10 @@ public final class ResultadoBlackjack {
     public static String obtenerValorCarta(String carta) {
         return carta.substring(0, carta.indexOf(" de "));
     }
+
+    public static String formatearMano(String nombre, List<String> cartas,
+            boolean plantada) {
+        return nombre + ": " + cartas + " | Valor: "
+                + calcularValor(cartas) + " | Plantada: " + plantada;
+    }
 }

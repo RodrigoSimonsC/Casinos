@@ -1,4 +1,11 @@
 
+-- Restauración completa de la base de datos del casino.
+-- Ejecutar este archivo conectado a MySQL con un usuario que pueda crear bases.
+CREATE DATABASE IF NOT EXISTS casino
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+USE casino;
+
 -- 1. Catálogo general de usuarios
 CREATE TABLE Usuarios (
     id_Usuarios INT AUTO_INCREMENT PRIMARY KEY,

@@ -2,11 +2,16 @@ package proyectofinalcasino.funciones;
 
 import java.util.ArrayList;
 import java.util.List;
+import proyectofinalcasino.logica.ReglasBlackjack;
+import proyectofinalcasino.modelo.Carta;
+import proyectofinalcasino.modelo.Mano;
 
 /**
  * Contiene las reglas de puntuación y validación de manos.
  */
 public final class GestorCartas {
+
+    private final ReglasBlackjack reglas = new ReglasBlackjack();
 
     public int calcularValor(List<String> cartas) {
         return ResultadoBlackjack.calcularValor(cartas);
@@ -43,6 +48,26 @@ public final class GestorCartas {
 
     public List<String> copiar(List<String> cartas) {
         return new ArrayList<>(cartas);
+    }
+
+    public int calcularValor(Mano mano) {
+        return reglas.calcularValor(mano);
+    }
+
+    public boolean tieneBlackjack(Mano mano) {
+        return reglas.tieneBlackjack(mano);
+    }
+
+    public boolean superaVeintiuno(Mano mano) {
+        return reglas.estaReventada(mano);
+    }
+
+    public boolean puedeSeparar(Mano mano) {
+        return reglas.puedeDividir(mano);
+    }
+
+    public int calcularValorCartas(List<Carta> cartas) {
+        return reglas.calcularValor(cartas);
     }
 
     private String normalizarValor(String carta) {

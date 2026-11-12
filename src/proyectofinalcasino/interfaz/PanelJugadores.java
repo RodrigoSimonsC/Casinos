@@ -13,6 +13,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.table.DefaultTableModel;
 import proyectofinalcasino.funciones.GestorMesa;
 import proyectofinalcasino.modelo.Jugador;
@@ -40,7 +41,15 @@ public final class PanelJugadores extends JPanel {
         tabla = new JTable(modeloTabla);
         tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tabla.setRowHeight(28);
-        add(new JScrollPane(tabla), BorderLayout.CENTER);
+        tabla.setFillsViewportHeight(true);
+        tabla.getTableHeader().setReorderingAllowed(false);
+
+        JScrollPane desplazamiento = new JScrollPane(tabla,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        desplazamiento.setBorder(BorderFactory.createEtchedBorder());
+        desplazamiento.getVerticalScrollBar().setUnitIncrement(16);
+        add(desplazamiento, BorderLayout.CENTER);
 
         JPanel formulario = new JPanel(new GridLayout(2, 4, 8, 8));
         formulario.add(new JLabel("Nombre"));

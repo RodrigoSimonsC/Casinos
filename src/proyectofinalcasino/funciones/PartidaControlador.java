@@ -98,6 +98,15 @@ public final class PartidaControlador implements PartidaEventoListener {
         persistencia.registrarSaldo(nombre, gestorMesa.obtenerSaldo(nombre));
     }
 
+    public void registrarSaldo(String jugador, double saldo) {
+        persistencia.registrarSaldo(jugador, saldo);
+    }
+
+    public void registrarApuestaDoblada(int jugador, int mano,
+            double apuesta) {
+        persistencia.registrarApuestaDoblada(jugador, mano, apuesta);
+    }
+
     public double saldo(int jugador) {
         return jugador < 0 || jugador >= jugadores.size()
                 ? 0 : gestorMesa.obtenerSaldo(jugadores.get(jugador).getNombre());

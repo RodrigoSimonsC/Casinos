@@ -36,5 +36,7 @@ public interface PartidaRepository {
     boolean actualizarSaldoEnPartida(int partidaId, String jugador,
             double saldo);
 
+    boolean actualizarApuestaMano(int manoId, double apuesta);
+
     boolean cerrarPartida(int partidaId, String estado);
 }

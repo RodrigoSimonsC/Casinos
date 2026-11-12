@@ -51,6 +51,7 @@ public final class AnimacionReparto extends JPanel {
     private boolean dealerRevelado;
     private boolean doblado;
     private boolean separado;
+    private int jugadorSeparado = -1;
     private boolean animandoSeparacion;
     private boolean partidaIniciada;
     private int jugadorActivo;
@@ -60,6 +61,7 @@ public final class AnimacionReparto extends JPanel {
     private final boolean[] manosDobladas = new boolean[2];
     private String resultado = "";
     private final String[] resultadosJugadores;
+    private final String[][] resultadosManos;
     private boolean nuevaRondaPendiente;
     private PartidaEventoListener eventos = new PartidaEventoListener() {
         @Override
@@ -88,6 +90,7 @@ public final class AnimacionReparto extends JPanel {
         fichas = new FichaCasinoPanel[jugadores.size()];
         jugadoresFinalizados = new boolean[jugadores.size()];
         resultadosJugadores = new String[jugadores.size()];
+        resultadosManos = new String[jugadores.size()][2];
         cartasBaraja = baraja.obtenerCartas();
         crearCola(cartasBaraja);
         setOpaque(false);
@@ -184,6 +187,30 @@ public final class AnimacionReparto extends JPanel {
         return jugadorActivo;
     }
 
+    public int obtenerManoActiva() {
+        return manoActiva;
+    }
+
+    public int cantidadManos(int jugador) {
+        return separado && jugador == jugadorSeparado ? 2 : 1;
+    }
+
+    public boolean registrarApuestaSeparada() {
+        return gestorApuestas.registrarSplit(jugadorActivo);
+    }
+
+    public boolean registrarApuestaDoblada() {
+        return gestorApuestas.registrarDoble(jugadorActivo, manoActiva);
+    }
+
+    public void actualizarFichaApuesta(int jugador) {
+        if (jugador >= 0 && jugador < fichas.length
+                && fichas[jugador] != null) {
+            fichas[jugador].setValorApuesta(
+                    gestorApuestas.obtenerTotal(jugador));
+        }
+    }
+
     public String obtenerTextoTurno() {
         if (!partidaIniciada) {
             return "Esperando apuestas";
@@ -205,6 +232,10 @@ public final class AnimacionReparto extends JPanel {
             return 0;
         }
         return gestorApuestas.obtener(jugador);
+    }
+
+    public int obtenerApuesta(int jugador, int mano) {
+        return gestorApuestas.obtener(jugador, mano);
     }
 
     private void actualizarPosicionesFichas() {
@@ -358,6 +389,27 @@ public final class AnimacionReparto extends JPanel {
                 ? "" : resultadosJugadores[jugador];
     }
 
+    public String obtenerResumenManos() {
+        StringBuilder resumen = new StringBuilder();
+        for (int jugador = 0; jugador < jugadores.size(); jugador++) {
+            if (jugador > 0) {
+                resumen.append("\n");
+            }
+            resumen.append(proyectofinalcasino.funciones.ResultadoBlackjack
+                    .formatearMano(jugadores.get(jugador).getNombre(),
+                            obtenerCartasJugador(jugador, 0),
+                            jugadoresFinalizados[jugador]));
+        }
+        List<String> cartasDealer = obtenerCartasDealer();
+        if (!cartasDealer.isEmpty()) {
+            resumen.append("\n").append(
+                    proyectofinalcasino.funciones.ResultadoBlackjack
+                            .formatearMano("Crupier", cartasDealer,
+                                    turnoFinalizado));
+        }
+        return resumen.toString();
+    }
+
     public boolean resultadoListo() {
         return !resultado.isEmpty();
     }
@@ -367,7 +419,11 @@ public final class AnimacionReparto extends JPanel {
     }
 
     public double multiplicadorResultado(int jugador) {
-        String resultadoJugador = obtenerResultado(jugador);
+        return multiplicadorResultado(jugador, 0);
+    }
+
+    public double multiplicadorResultado(int jugador, int mano) {
+        String resultadoJugador = obtenerResultado(jugador, mano);
         if (resultadoJugador.contains("Empate")) {
             return 1.0;
         }
@@ -375,6 +431,15 @@ public final class AnimacionReparto extends JPanel {
             return 2.5;
         }
         return resultadoJugador.contains("Ganaste") ? 2.0 : 0.0;
+    }
+
+    public String obtenerResultado(int jugador, int mano) {
+        if (jugador < 0 || jugador >= resultadosManos.length
+                || mano < 0 || mano >= resultadosManos[jugador].length) {
+            return "";
+        }
+        return resultadosManos[jugador][mano] == null
+                ? "" : resultadosManos[jugador][mano];
     }
 
     private void iniciarTurnoDealer() {
@@ -468,8 +533,10 @@ public final class AnimacionReparto extends JPanel {
         if (!puedeSeparar()) {
             return false;
         }
-        eventos.decisionTomada(jugadorActivo, manoActiva, "Separar", 0);
+        eventos.decisionTomada(jugadorActivo, manoActiva, "Separar",
+                gestorApuestas.obtener(jugadorActivo));
         separado = true;
+        jugadorSeparado = jugadorActivo;
         CartaReparto segunda = cartasJugador(jugadorActivo, 0).get(1);
         segunda.mano = 1;
         segunda.posicionEnMano = 0;
@@ -483,8 +550,8 @@ public final class AnimacionReparto extends JPanel {
         progreso++;
         CartaReparto primera = cartasJugador(jugadorActivo, 0).get(0);
         CartaReparto segunda = cartasJugador(jugadorActivo, 1).get(0);
-        int destinoPrimera = calcularPosicionMano(0, 0);
-        int destinoSegunda = calcularPosicionMano(0, 1);
+        int destinoPrimera = calcularPosicionMano(jugadorActivo, 0);
+        int destinoSegunda = calcularPosicionMano(jugadorActivo, 1);
         primera.x = interpolar(primera.x, destinoPrimera, progreso);
         primera.y = interpolar(primera.y, getHeight() - 205, progreso);
         segunda.x = interpolar(segunda.x, destinoSegunda, progreso);
@@ -538,8 +605,15 @@ public final class AnimacionReparto extends JPanel {
     private void finalizarResultado() {
         List<String> cartasDealer = obtenerCartasDealer();
         for (int jugador = 0; jugador < jugadores.size(); jugador++) {
-            resultadosJugadores[jugador] = gestorCartas.resolver(
+            resultadosManos[jugador][0] = gestorCartas.resolver(
                     obtenerCartasJugador(jugador, 0), cartasDealer);
+            if (jugador == jugadorSeparado && separado) {
+                resultadosManos[jugador][1] = gestorCartas.resolver(
+                        obtenerCartasJugador(jugador, 1), cartasDealer);
+            } else {
+                resultadosManos[jugador][1] = "";
+            }
+            resultadosJugadores[jugador] = resultadosManos[jugador][0];
         }
         resultado = resultadosJugadores.length == 0 ? "" : resultadosJugadores[0];
         int[] puntuaciones = new int[jugadores.size()];
@@ -570,6 +644,7 @@ public final class AnimacionReparto extends JPanel {
         dealerRevelado = false;
         doblado = false;
         separado = false;
+        jugadorSeparado = -1;
         animandoSeparacion = false;
         partidaIniciada = false;
         manoActiva = 0;
@@ -579,6 +654,9 @@ public final class AnimacionReparto extends JPanel {
         manosDobladas[1] = false;
         resultado = "";
         java.util.Arrays.fill(resultadosJugadores, "");
+        for (String[] manos : resultadosManos) {
+            java.util.Arrays.fill(manos, "");
+        }
         java.util.Arrays.fill(jugadoresFinalizados, false);
         jugadorActivo = 0;
         gestorApuestas.reiniciar();
@@ -680,7 +758,7 @@ public final class AnimacionReparto extends JPanel {
                 || !resultado.isEmpty() || jugadores.isEmpty()) {
             return;
         }
-        int x = calcularPosicionMano(jugadorActivo, 0) - 12;
+        int x = calcularPosicionMano(jugadorActivo, manoActiva) - 12;
         int y = getHeight() - 217;
         int ancho = CARTA_ANCHO + 24;
         g.setColor(new Color(255, 210, 70, 55));
@@ -693,7 +771,7 @@ public final class AnimacionReparto extends JPanel {
     private void pintarValores(Graphics2D g) {
         g.setFont(new Font("SansSerif", Font.BOLD, 16));
         for (int jugador = 0; jugador < jugadores.size(); jugador++) {
-            int manos = separado && jugador == 0 ? 2 : 1;
+            int manos = cantidadManos(jugador);
             for (int mano = 0; mano < manos; mano++) {
                 List<String> cartasJugador = obtenerCartasJugador(jugador, mano);
                 if (!cartasJugador.isEmpty()) {
@@ -701,8 +779,8 @@ public final class AnimacionReparto extends JPanel {
                     int y = getHeight() - 205 - (int) (CARTA_ALTO * 0.10);
                     pintarEtiquetaValor(g, "Valor: "
                             + calcularValorTexto(cartasJugador), x, y);
-                    if (mano == 0 && !obtenerResultado(jugador).isEmpty()) {
-                        pintarResultadoJugador(g, obtenerResultado(jugador),
+                    if (!obtenerResultado(jugador, mano).isEmpty()) {
+                        pintarResultadoJugador(g, obtenerResultado(jugador, mano),
                                 x, y - 25);
                     }
                 }
@@ -766,7 +844,7 @@ public final class AnimacionReparto extends JPanel {
 
     private int calcularPosicionMano(int jugador, int mano) {
         int base = calcularPosicionHorizontal(jugador, false, 0);
-        if (!separado || jugador != 0) {
+        if (!separado || jugador != jugadorSeparado) {
             return base;
         }
         return base + (mano == 0 ? -SEPARACION_MANOS / 2 : SEPARACION_MANOS / 2);
