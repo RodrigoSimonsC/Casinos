@@ -1,5 +1,7 @@
 package blackcasino.modelos;
 
+// Modelo de ejemplo que representa una carta de Blackjack.
+
 import java.util.Objects;
 
 public final class Carta {

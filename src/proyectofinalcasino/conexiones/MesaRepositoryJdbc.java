@@ -1,6 +1,5 @@
 package proyectofinalcasino.conexiones;
 
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -35,72 +34,16 @@ public final class MesaRepositoryJdbc implements MesaRepository {
 
     @Override
     public List<Jugador> consultarJugadores() {
-        sincronizarSaldosActivos();
+        // El saldo pertenece a la sesión actual, no se recupera desde MySQL.
         return new ArrayList<>(jugadoresActivos);
-    }
-
-    private void sincronizarSaldosActivos() {
-        if (jugadoresActivos.isEmpty()) {
-            return;
-        }
-        String sql = "SELECT u.Nombre, eu.saldo_global "
-                + "FROM Usuarios u INNER JOIN estadoUsuario eu "
-                + "ON eu.id_Usuario = u.id_Usuarios "
-                + "WHERE u.Nombre = ?";
-        Connection conexion = JdbcConexion.obtenerConexion();
-        if (conexion == null) {
-            return;
-        }
-        try (Connection connection = conexion;
-                PreparedStatement statement = connection.prepareStatement(sql)) {
-            for (int indice = 0; indice < jugadoresActivos.size(); indice++) {
-                Jugador jugador = jugadoresActivos.get(indice);
-                statement.setString(1, jugador.getNombre());
-                try (ResultSet resultado = statement.executeQuery()) {
-                    if (resultado.next()) {
-                        jugadoresActivos.set(indice, new Jugador(
-                                resultado.getString("Nombre"),
-                                resultado.getBigDecimal("saldo_global").doubleValue()));
-                    }
-                }
-            }
-        } catch (SQLException exception) {
-            informarError("No se pudieron sincronizar los saldos actuales.",
-                    exception);
-        }
-    }
-
-    @Override
-    public List<Jugador> consultarHistorialJugadores() {
-        String sql = "SELECT u.Nombre, eu.saldo_global "
-                + "FROM Usuarios u INNER JOIN estadoUsuario eu "
-                + "ON eu.id_Usuario = u.id_Usuarios ORDER BY u.id_Usuarios";
-        List<Jugador> jugadores = new ArrayList<>();
-        Connection conexion = JdbcConexion.obtenerConexion();
-        if (conexion == null) {
-            return jugadores;
-        }
-        try (Connection connection = conexion;
-                PreparedStatement statement = connection.prepareStatement(sql);
-                ResultSet resultados = statement.executeQuery()) {
-            while (resultados.next()) {
-                jugadores.add(new Jugador(resultados.getString("Nombre"),
-                        resultados.getBigDecimal("saldo_global").doubleValue()));
-            }
-            return jugadores;
-        } catch (SQLException exception) {
-            informarError("No se pudieron consultar los jugadores.", exception);
-            return jugadores;
-        }
     }
 
     @Override
     public void guardarJugadores(List<Jugador> jugadores) {
         String insertarUsuario = "INSERT INTO Usuarios (Nombre) VALUES (?)";
-        String insertarEstado = "INSERT INTO estadoUsuario (id_Usuario, saldo_global) VALUES (?, ?)";
+        String insertarEstado = "INSERT INTO estadoUsuario (id_Usuario, saldo_global) VALUES (?, 0)";
         String buscarJugador = "SELECT u.id_Usuarios FROM Usuarios u "
-                + "INNER JOIN estadoUsuario eu ON eu.id_Usuario = u.id_Usuarios "
-                + "WHERE u.Nombre = ? AND eu.saldo_global = ? LIMIT 1";
+                + "WHERE u.Nombre = ? LIMIT 1";
         Connection conexion = JdbcConexion.obtenerConexion();
         if (conexion == null) {
             jugadoresActivos.clear();
@@ -116,7 +59,6 @@ public final class MesaRepositoryJdbc implements MesaRepository {
                     PreparedStatement existente = connection.prepareStatement(buscarJugador)) {
                 for (Jugador jugador : jugadores) {
                     existente.setString(1, jugador.getNombre());
-                    existente.setBigDecimal(2, BigDecimal.valueOf(jugador.getSaldo()));
                     try (ResultSet resultados = existente.executeQuery()) {
                         if (resultados.next()) {
                             continue;
@@ -133,7 +75,6 @@ public final class MesaRepositoryJdbc implements MesaRepository {
                         }
                         estado.setLong(1, claves.getLong(1));
                     }
-                    estado.setBigDecimal(2, BigDecimal.valueOf(jugador.getSaldo()));
                     estado.executeUpdate();
                 }
                 connection.commit();
@@ -160,32 +101,17 @@ public final class MesaRepositoryJdbc implements MesaRepository {
 
     @Override
     public boolean actualizarSaldo(String nombre, double saldo) {
-        String sql = "UPDATE estadoUsuario eu INNER JOIN Usuarios u "
-                + "ON u.id_Usuarios = eu.id_Usuario SET eu.saldo_global = ? "
-                + "WHERE u.Nombre = ?";
-        Connection conexion = JdbcConexion.obtenerConexion();
-        if (conexion == null) {
-            return false;
-        }
-        try (Connection connection = conexion;
-                PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setBigDecimal(1, BigDecimal.valueOf(Math.max(0, saldo)));
-            statement.setString(2, nombre);
-            boolean actualizado = statement.executeUpdate() > 0;
-            if (actualizado) {
-                for (int indice = 0; indice < jugadoresActivos.size(); indice++) {
-                    Jugador jugador = jugadoresActivos.get(indice);
-                    if (jugador.getNombre().equals(nombre)) {
-                        jugadoresActivos.set(indice, new Jugador(nombre, Math.max(0, saldo)));
-                        break;
-                    }
-                }
+        // Las apuestas solo modifican el saldo que vive en esta ejecución.
+        double saldoNormalizado = Math.max(0, saldo);
+        for (int indice = 0; indice < jugadoresActivos.size(); indice++) {
+            Jugador jugador = jugadoresActivos.get(indice);
+            if (jugador.getNombre().equals(nombre)) {
+                jugadoresActivos.set(indice,
+                        new Jugador(nombre, saldoNormalizado));
+                return true;
             }
-            return actualizado;
-        } catch (SQLException exception) {
-            informarError("No se pudo actualizar el saldo.", exception);
-            return false;
         }
+        return false;
     }
 
     @Override

@@ -21,10 +21,6 @@ public final class GestorMesa {
         return repository.consultarJugadores();
     }
 
-    public List<Jugador> obtenerHistorialJugadores() {
-        return repository.consultarHistorialJugadores();
-    }
-
     public ConfiguracionMesa obtenerConfiguracion() {
         return repository.consultarConfiguracion();
     }

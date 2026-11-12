@@ -1,5 +1,7 @@
 package blackcasino.elementosCasino;
 
+// Modelo de ejemplo que agrupa las cartas de una mano.
+
 import blackcasino.modelos.Carta;
 import java.util.ArrayList;
 import java.util.List;

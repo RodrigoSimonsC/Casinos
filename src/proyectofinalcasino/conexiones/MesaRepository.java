@@ -11,8 +11,6 @@ public interface MesaRepository {
 
     List<Jugador> consultarJugadores();
 
-    List<Jugador> consultarHistorialJugadores();
-
     void guardarJugadores(List<Jugador> jugadores);
 
     boolean actualizarSaldo(String nombre, double saldo);

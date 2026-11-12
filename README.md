@@ -80,17 +80,36 @@ src/
     │   ├── PartidaEventoListener.java
     │   ├── PartidaPersistencia.java
     │   └── ResultadoBlackjack.java
+    ├── elementosCasino/
+    │   └── Baraja.java
+    ├── logica/
+    │   ├── AccionesDeJuego.java
+    │   ├── ControlPartida.java
+    │   ├── ControlTurnos.java
+    │   ├── Mesa.java
+    │   ├── PartidaMotor.java
+    │   └── ReglasBlackjack.java
+    ├── negocio/
+    │   ├── Apuesta.java
+    │   └── Caja.java
+    ├── historial/
+    │   ├── HistorialPartidas.java
+    │   └── ResultadoPartida.java
     ├── interfaz/
     │   ├── AnimacionReparto.java
     │   ├── FichaCasinoPanel.java
+    │   ├── PanelAnimacionMesa.java
     │   ├── PanelConfiguracion.java
     │   ├── PanelControlesPartida.java
     │   ├── PanelJugadores.java
     │   ├── VentanaPartida.java
     │   └── VentanaPrincipal.java
     └── modelo/
+        ├── Carta.java
         ├── ConfiguracionMesa.java
-        └── Jugador.java
+        ├── Crupier.java
+        ├── Jugador.java
+        └── Mano.java
 ```
 
 ### Responsabilidad de cada paquete
@@ -110,10 +129,44 @@ MySQL y objetos Java.
 Contiene reglas, coordinación de partida, validaciones y servicios de dominio.
 No debe construir ventanas Swing.
 
+#### `elementosCasino`
+
+Contiene la baraja tipada del dominio. `Baraja` genera cartas inmutables y
+entrega una vista no modificable de las cartas mezcladas.
+
+#### `logica`
+
+Contiene el motor independiente de la interfaz:
+
+- `ReglasBlackjack`: puntuación, blackjack, bust, split y resolución.
+- `AccionesDeJuego`: reparto, pedir carta, plantarse, split y turno del dealer.
+- `ControlTurnos`: jugador y mano activos.
+- `ControlPartida`: estado de la ronda, apuestas, turnos y resultados.
+- `PartidaMotor`: fachada de apuestas y estado operativo compatible con la vista.
+- `Mesa`: agrupa baraja, jugadores y acciones de juego.
+
+Estas clases no importan Swing ni JDBC.
+
+#### `negocio`
+
+Representa dinero y apuestas mediante `Apuesta` y `Caja`. Estas clases validan
+importes positivos y permiten separar el cálculo económico de la interfaz.
+
+#### `historial`
+
+Contiene `ResultadoPartida` y `HistorialPartidas`. El historial es independiente
+de Swing y puede conservar resultados en memoria; la persistencia JDBC de los
+eventos continúa siendo responsabilidad de `PartidaPersistencia` y
+`PartidaRepositoryJdbc`.
+
 #### `interfaz`
 
 Contiene ventanas y paneles Swing. La interfaz muestra información y delega
 las decisiones de negocio al controlador.
+
+`AnimacionReparto` es ahora una fachada visual pequeña. La implementación de
+temporizadores, posiciones y pintura está en `PanelAnimacionMesa`, mientras
+`ControlPartida` conserva las decisiones de la ronda.
 
 ---
 
@@ -158,30 +211,32 @@ src/proyectofinalcasino/modelo/Jugador.java
 
 Representa a una persona sentada en la mesa.
 
-### Atributos
+### Datos y manos
 
-```java
-private final String nombre;
-private final double saldo;
-```
+`Jugador` conserva su nombre, saldo y la lista de manos de la ronda. El saldo
+dispone de operaciones con `BigDecimal` para evitar errores de precisión
+monetaria; los métodos basados en `double` se mantienen únicamente por
+compatibilidad con las clases antiguas de persistencia y Swing.
 
-- `nombre`: identificación visual y lógica del jugador.
-- `saldo`: saldo actual mostrado en la mesa.
-
-Los atributos son `final`, por lo que un objeto `Jugador` es inmutable.
-Cuando cambia el saldo se crea otro objeto `Jugador`.
+Una ronda normal tiene una mano. Después de un split, el jugador conserva la
+mano original y agrega una segunda mano independiente.
 
 ### Métodos
 
 | Método | Responsabilidad |
 |---|---|
-| `Jugador(String, double)` | Crea el jugador |
+| `Jugador(String, double)` | Crea el jugador con compatibilidad heredada |
 | `getNombre()` | Devuelve el nombre |
 | `getSaldo()` | Devuelve el saldo |
+| `obtenerSaldoDecimal()` | Devuelve el saldo como `BigDecimal` |
+| `retirarSaldo(importe)` | Descuenta saldo validando el importe |
+| `ingresarSaldo(importe)` | Aumenta saldo validando el importe |
+| `obtenerManos()` | Devuelve las manos del jugador |
+| `agregarMano(mano)` | Agrega una mano, por ejemplo durante split |
 | `toString()` | Devuelve el nombre para controles Swing |
 
-El saldo no se modifica directamente en el modelo. El cambio pasa por
-`GestorMesa`, que valida y persiste la operación.
+La interfaz no debe modificar el saldo sin validación. En el flujo actual,
+`GestorMesa` y `PartidaControlador` coordinan la operación y la persistencia.
 
 ---
 
@@ -1153,16 +1208,23 @@ recargar inmediatamente o dejarlo para después.
 
 ## 14. Animación de cartas
 
-## `AnimacionReparto`
+## `AnimacionReparto` y `PanelAnimacionMesa`
 
-Archivo:
+Fachada:
 
 ```text
 src/proyectofinalcasino/interfaz/AnimacionReparto.java
 ```
 
-Es un `JPanel` que pinta cartas y ejecuta el movimiento visual usando un
-`javax.swing.Timer`.
+`AnimacionReparto` mantiene el contrato que utiliza `VentanaPartida`, pero no
+contiene reglas, pagos ni consultas SQL. La implementación Swing está en:
+
+```text
+src/proyectofinalcasino/interfaz/PanelAnimacionMesa.java
+```
+
+`PanelAnimacionMesa` ejecuta los temporizadores, posiciones y pinturas. Consulta
+`ControlPartida` para saber qué estado debe representar.
 
 ### Elementos visuales
 
@@ -1188,7 +1250,8 @@ y
 ```
 
 El método `interpolar` mueve gradualmente la carta desde su inicio hacia el
-destino.
+destino. Ninguno de estos componentes modifica directamente el saldo ni
+decide el resultado económico de una mano.
 
 ### Reparto
 
@@ -1416,10 +1479,98 @@ Control:
     PartidaControlador
     GestorCartas
     GestorApuestas
+    ControlPartida
+    PartidaMotor
+    Mesa
+    ControlTurnos
 
 Persistencia:
     Repositories JDBC
 ```
+
+## 16.5 Flujo lógico actual de una ronda
+
+El ciclo completo se ejecuta en este orden:
+
+```text
+VentanaPartida
+    -> AnimacionReparto (fachada visual)
+        -> PanelAnimacionMesa (timer, posiciones y pintura)
+        -> ControlPartida (estado y validaciones)
+            -> PartidaMotor (apuestas)
+            -> GestorCartas / ReglasBlackjack
+    -> PartidaControlador
+        -> PartidaPersistencia
+            -> PartidaRepositoryJdbc
+                -> MySQL
+```
+
+### 1. Preparación
+
+`GestorMesa` obtiene la configuración y los jugadores activos. La ventana crea
+una `BarajaBlackjack`, un `PartidaControlador` y la fachada
+`AnimacionReparto`. El controlador abre el registro de la partida en MySQL.
+
+### 2. Apuestas
+
+El jugador seleccionado coloca fichas mediante `ControlPartida` y
+`PartidaMotor`. Antes de iniciar se valida que:
+
+- Existan jugadores.
+- Todos tengan una apuesta positiva.
+- Cada apuesta respete el múltiplo configurado.
+- El saldo sea suficiente.
+
+`PartidaControlador.iniciarRonda` descuenta los saldos y registra la ronda.
+
+### 3. Reparto
+
+`PanelAnimacionMesa` consume las cartas en el orden de `BarajaBlackjack`.
+El temporizador solo mueve y pinta cada carta. Cada reparto se notifica a
+`PartidaEventoListener`, que registra la carta en `PartidaPersistencia`.
+
+### 4. Turnos
+
+`ControlPartida` mantiene el jugador y la mano activos. Una mano puede:
+
+- Pedir carta.
+- Plantarse.
+- Doblar, cobrando una apuesta adicional igual.
+- Separarse, creando una segunda mano y cobrando su apuesta.
+
+`ControlTurnos` y la información de mano del jugador permiten pasar de la mano
+original a la separada y luego al siguiente jugador.
+
+### 5. Dealer y resultados
+
+Cuando todas las manos terminan, se revela el dealer. `ReglasBlackjack`
+calcula valores considerando los ases y resuelve cada mano por separado.
+`ControlPartida` conserva los resultados y sus multiplicadores:
+
+| Resultado | Pago total |
+|---|---:|
+| Derrota o bust | `0.00 ×` apuesta |
+| Empate | `1.00 ×` apuesta |
+| Victoria | `2.00 ×` apuesta |
+| Blackjack | `2.50 ×` apuesta |
+
+`VentanaPartida` solicita el pago al `PartidaControlador`, que actualiza el
+saldo y registra el pago en MySQL. La liquidación se protege para no pagar dos
+veces el mismo resultado.
+
+### 6. Nueva ronda
+
+Después de finalizar el pago, se limpian cartas, manos, resultados, apuestas y
+turnos. Se genera y mezcla una nueva baraja. La mesa vuelve al estado de espera
+de apuestas sin perder los jugadores ni sus saldos persistidos.
+
+### Separación de responsabilidades
+
+- `AnimacionReparto`: fachada compatible con las ventanas.
+- `PanelAnimacionMesa`: movimiento, temporizadores, posiciones y pintura.
+- `ControlPartida`: estado, turnos, validaciones y resultados.
+- `PartidaControlador`: coordinación de saldo y persistencia.
+- `PartidaRepositoryJdbc`: SQL y transacciones JDBC.
 
 ---
 
@@ -1693,9 +1844,13 @@ SELECT * FROM Pagos ORDER BY id_Pagos DESC;
 | Cambiar botones | `PanelControlesPartida` |
 | Cambiar ventana principal | `VentanaPrincipal` |
 | Cambiar diálogo de recarga | `VentanaPartida` |
-| Cambiar movimiento de cartas | `AnimacionReparto` |
+| Cambiar movimiento de cartas | `PanelAnimacionMesa` |
+| Cambiar fachada visual compatible | `AnimacionReparto` |
 | Cambiar representación de ficha | `FichaCasinoPanel` |
-| Cambiar estados | `EstadoPartida` y `PartidaControlador` |
+| Cambiar estados y turnos | `EstadoPartida`, `ControlPartida` y `ControlTurnos` |
+| Cambiar acciones de cartas | `AccionesDeJuego` y `Mesa` |
+| Cambiar apuestas de la ronda | `PartidaMotor` y `GestorApuestas` |
+| Cambiar resultados e historial | `ReglasBlackjack`, `HistorialPartidas` y `PartidaPersistencia` |
 | Agregar evento persistible | `PartidaEventoListener`, `PartidaControlador`, `PartidaPersistencia`, `PartidaRepository` |
 
 ---

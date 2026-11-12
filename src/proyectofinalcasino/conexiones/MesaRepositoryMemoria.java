@@ -11,7 +11,6 @@ import proyectofinalcasino.modelo.Jugador;
 public final class MesaRepositoryMemoria implements MesaRepository {
 
     private final List<Jugador> jugadores = new ArrayList<>();
-    private final List<Jugador> historialJugadores = new ArrayList<>();
     private ConfiguracionMesa configuracion = new ConfiguracionMesa();
 
     @Override
@@ -23,11 +22,6 @@ public final class MesaRepositoryMemoria implements MesaRepository {
     public void guardarJugadores(List<Jugador> jugadores) {
         this.jugadores.clear();
         this.jugadores.addAll(jugadores);
-        for (Jugador jugador : jugadores) {
-            if (!historialJugadores.contains(jugador)) {
-                historialJugadores.add(jugador);
-            }
-        }
     }
 
     @Override
@@ -40,11 +34,6 @@ public final class MesaRepositoryMemoria implements MesaRepository {
             }
         }
         return false;
-    }
-
-    @Override
-    public List<Jugador> consultarHistorialJugadores() {
-        return new ArrayList<>(historialJugadores);
     }
 
     @Override

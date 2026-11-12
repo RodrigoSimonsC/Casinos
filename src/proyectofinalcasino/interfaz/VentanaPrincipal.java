@@ -1,5 +1,7 @@
 package proyectofinalcasino.interfaz;
 
+// Ventana principal para administrar la mesa y sus jugadores.
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -79,9 +81,6 @@ public final class VentanaPrincipal extends JFrame {
         JMenuItem verJugadores = new JMenuItem("Ver jugadores");
         verJugadores.addActionListener(evento -> pestañas.setSelectedIndex(0));
         jugadores.add(verJugadores);
-        JMenuItem historial = new JMenuItem("Ver historial de jugadores");
-        historial.addActionListener(evento -> mostrarHistorialJugadores());
-        jugadores.add(historial);
 
         JMenu configuracion = new JMenu("Configuración");
         JMenuItem abrirConfiguracion = new JMenuItem("Abrir configuración");
@@ -108,24 +107,6 @@ public final class VentanaPrincipal extends JFrame {
         barra.add(configuracion);
         barra.add(ayuda);
         return barra;
-    }
-
-    private void mostrarHistorialJugadores() {
-        StringBuilder texto = new StringBuilder("Jugadores registrados:\n\n");
-        java.util.List<proyectofinalcasino.modelo.Jugador> jugadores =
-                gestor.obtenerHistorialJugadores();
-        if (jugadores.isEmpty()) {
-            texto.append("No hay jugadores registrados.");
-        } else {
-            for (proyectofinalcasino.modelo.Jugador jugador : jugadores) {
-                texto.append("- ").append(jugador.getNombre())
-                        .append(": $")
-                        .append(String.format("%.2f", jugador.getSaldo()))
-                        .append('\n');
-            }
-        }
-        JOptionPane.showMessageDialog(this, texto.toString(),
-                "Historial de jugadores", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private JPanel crearEncabezado() {

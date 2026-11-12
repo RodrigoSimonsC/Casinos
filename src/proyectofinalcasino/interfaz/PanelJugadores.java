@@ -1,5 +1,7 @@
 package proyectofinalcasino.interfaz;
 
+// Panel Swing para agregar, retirar y consultar jugadores.
+
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
@@ -60,12 +62,10 @@ public final class PanelJugadores extends JPanel {
         agregar.addActionListener(evento -> agregarJugador());
         JButton eliminar = new JButton("Retirar seleccionado");
         eliminar.addActionListener(evento -> eliminarJugador());
-        JButton historial = new JButton("Ver historial");
-        historial.addActionListener(evento -> mostrarHistorial());
         formulario.add(agregar);
         formulario.add(eliminar);
         formulario.add(etiquetaDisponibles);
-        formulario.add(historial);
+        formulario.add(new JLabel());
         add(formulario, BorderLayout.SOUTH);
         refrescar();
     }
@@ -104,23 +104,6 @@ public final class PanelJugadores extends JPanel {
             return;
         }
         refrescar();
-    }
-
-    private void mostrarHistorial() {
-        List<Jugador> historial = gestor.obtenerHistorialJugadores();
-        if (historial.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Todavía no hay jugadores registrados.",
-                    "Historial", JOptionPane.INFORMATION_MESSAGE);
-            return;
-        }
-        StringBuilder mensaje = new StringBuilder("Jugadores que han estado en la mesa:\n\n");
-        for (Jugador jugador : historial) {
-            mensaje.append("- ").append(jugador.getNombre())
-                    .append(" ($ ").append(String.format("%.2f", jugador.getSaldo()))
-                    .append(")\n");
-        }
-        JOptionPane.showMessageDialog(this, mensaje.toString(),
-                "Historial de jugadores", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void mostrarError(String mensaje) {

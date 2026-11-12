@@ -80,7 +80,7 @@ public final class VentanaPartida extends JFrame {
         setContentPane(new FondoMesa());
         AnimacionReparto animacion = new AnimacionReparto(
                 gestor.obtenerJugadores(), baraja,
-                gestor.obtenerConfiguracion().getMultiplesApuesta());
+                gestor.obtenerConfiguracion().getMultiplesApuesta(), gestor);
         controlador = new PartidaControlador(gestor);
         if (!controlador.abrir(gestor.obtenerConfiguracion())) {
             JOptionPane.showMessageDialog(VentanaPartida.this,
@@ -99,10 +99,8 @@ public final class VentanaPartida extends JFrame {
         titulo.setFont(new Font("SansSerif", Font.BOLD, 26));
         barra.add(titulo, BorderLayout.WEST);
 
-        saldos = new JLabel(formatoSaldos(gestor));
-        saldos.setForeground(Color.WHITE);
-        saldos.setFont(new Font("SansSerif", Font.BOLD, 14));
-        barra.add(saldos, BorderLayout.SOUTH);
+        // El saldo de cada jugador se pinta debajo de su ficha en la mesa.
+        saldos = new JLabel();
 
         JButton salir = new JButton("Volver a configuración");
         salir.setFocusable(false);
@@ -244,6 +242,7 @@ public final class VentanaPartida extends JFrame {
                     !animacion.isPartidaIniciada()
                     && animacion.obtenerApuestaActual() > 0,
                     animacion.puedeComenzarPartida());
+            animacion.repaint();
         });
         estadoControles.start();
 
